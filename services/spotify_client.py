@@ -14,7 +14,7 @@ class SpotifyClient:
             "Content-Type":"application/json",
         }
     
-    def get_liked_songs(self,limit=50,max_pages=10):
+    def get_liked_songs(self,limit=50,max_pages=1):
         url = f"{self.base}/me/tracks?limit={limit}"
         songs=[]
 

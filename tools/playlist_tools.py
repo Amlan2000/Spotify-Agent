@@ -1,7 +1,9 @@
 from langchain.tools import tool
+from streamlit import user
 from services.spotify_client import SpotifyClient
 import requests
-import json
+
+from services.tool_services import add_tracks_to_playlist, create_playlist, fetch_artist_genre, fetch_user_playlists, get_audio_moods, get_current_user_id
 
 
 sp=SpotifyClient()
@@ -21,14 +23,17 @@ def create_playlist_by_artist(artist_name:str) -> str:
 
     try:
         liked_songs = sp.get_liked_songs()
+        if not liked_songs:
+            return "No liked songs found"
+        
         filtered = [song for song in liked_songs if artist_name.lower() in song["primary_artist"].lower()]
         if not filtered:
             return f"No songs found for artist: {artist_name}"
         
         playlist_name = f"{artist_name} favourites"
 
-        playlist_id = create_playlist(playlist_name)
-        add_tracks_to_playlist(playlist_id,[song["uri"] for song in filtered])
+        playlist_id = create_playlist(sp,playlist_name)
+        add_tracks_to_playlist(sp,playlist_id,[song["uri"] for song in filtered])
 
         return f"Playlist '{playlist_name}' created with {len(filtered)} songs."
     
@@ -50,11 +55,14 @@ def create_playlist_by_genre(genre_name:str) -> str:
     """
     try:
         liked_songs = sp.get_liked_songs()
+        if not liked_songs:
+            return "No liked songs found"
+        
         filtered=[]
 
         for song in liked_songs:
             # Use Spotify track endpoint to get genre (requires artist info)
-            song_genre = fetch_artist_genre(song["artists"][0])
+            song_genre = fetch_artist_genre(sp,song["artists"][0])
             if genre_name.lower() in song_genre.lower():
                 filtered.append(song)
         
@@ -62,12 +70,64 @@ def create_playlist_by_genre(genre_name:str) -> str:
             return f"No Songs found for genre: {genre_name}"
         
         playlist_name = f"{genre_name} Vibes"
-        playlist_id = create_playlist(playlist_name)
-        add_tracks_to_playlist(playlist_id,[song["uri"] for song in filtered])
+        playlist_id = create_playlist(sp,playlist_name)
+        add_tracks_to_playlist(sp,playlist_id,[song["uri"] for song in filtered])
 
         return f"Playlist '{playlist_name}' created with {len(filtered)} songs."
     except Exception as e:
         return f"Error creating playlist by genre {genre_name}: {str(e)}"
+
+
+@tool("create_playlist_by_mood")
+def create_playlist_by_mood(user_query:str):
+    """
+    Creates a new spotify playlist from liked songs based on mood.
+
+    Args:
+    user_query: mood to be identified from the user_query 
+
+    Returns:
+    Returns the message after playlist is being created.
+    
+    """
+
+    try:
+
+        
+        liked_songs = sp.get_liked_songs()
+        
+        if not liked_songs:
+            return "No liked songs found"
+        
+        # Get track name and artist
+        tracks_info = [
+        {
+            'id': song.get('id'),
+            'name': song.get('name'),
+            'primary_artist': song.get('primary_artist'),
+            'uri': song.get('uri') or f"spotify:track:{song.get('id')}"
+        }
+        for song in liked_songs
+        if song.get('id')
+        ]
+
+
+        # Fetch audio id's of the songs which match the user mood
+        track_URIs , user_mood = get_audio_moods(user_query, tracks_info)    
+        
+        if not  track_URIs:
+            return f"No Songs found for mood: {user_mood}"
+        
+        playlist_name= f"This is my {user_mood} playlist"
+        playlist_id = create_playlist(sp,playlist_name)
+
+        track_URIs = [f"spotify:track:{tid}" for tid in track_URIs]
+        
+        add_tracks_to_playlist(sp,playlist_id,track_URIs)
+    
+        return f"Playlist '{playlist_name}' created with {len( track_URIs)} songs."
+    except Exception as e:
+        return f"Error creating playlist by mood {user_mood}: {str(e)}"
 
 
 
@@ -83,8 +143,8 @@ def delete_playlist(playlist_name:str)->str:
     Returns the message after playlist being deleted.
     """
 
-    user_id = get_current_user_id()
-    playlists = fetch_user_playlists(user_id)
+    user_id = get_current_user_id(sp)
+    playlists = fetch_user_playlists(sp,user_id)
     for playlist in playlists:
         if playlist_name.lower() == playlist["name"].lower():
             url = f"https://api.spotify.com/v1/playlists/{playlist['id']}/followers"
@@ -93,44 +153,5 @@ def delete_playlist(playlist_name:str)->str:
         
     return f"No playlist found with name: {playlist_name}"
 
-
-
-
-
-
-
-def create_playlist(name):
-    user_id = get_current_user_id()
-    url = f"https://api.spotify.com/v1/users/{user_id}/playlists"
-    payload= json.dumps({"name":name, "public":False})
-    r = requests.post(url,headers=sp.headers(),data=payload)
-    r.raise_for_status()
-    return r.json()["id"]
-
-def add_tracks_to_playlist(playlist_id,uris):
-    url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
-    r = requests.post(url,headers = sp.headers(), data = json.dumps({"uris":uris}))
-    r.raise_for_status()
-
-def get_current_user_id():
-    r=requests.get("https://api.spotify.com/v1/me",headers=sp.headers())
-    r.raise_for_status()
-    return r.json()["id"]
-
-def fetch_user_playlists(user_id):
-    url = f"https://api.spotify.com/v1/users/{user_id}/playlists"
-    r = requests.get(url,headers=sp.headers())
-    r.raise_for_status()
-    return r.json()["items"]
-
-def fetch_artist_genre(artist_name):
-    search_url="https://api.spotify.com/v1/search"
-    params = {"q":artist_name, "type":"artist","limit":1}
-    r = requests.get(search_url,headers=sp.headers(),params=params)
-    r.raise_for_status()
-    artists = r.json().get("artists",{}).get("items",[])
-    if artists and artists[0].get("genres"):
-        return ",".join(artists[0]["genres"])
-    return ""
 
 
