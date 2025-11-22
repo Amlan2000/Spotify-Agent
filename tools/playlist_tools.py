@@ -11,7 +11,7 @@ sp=SpotifyClient()
 @tool("create_playlist_by_artist")
 def create_playlist_by_artist(artist_name:str) -> str:
     """
-    Creates a new Spotify playlist from liked songs of a specefic artist.
+    Creates a new Spotify playlist from liked songs of a specific artist.
     
     Args:
     artist_name: Name of the artist to filter liked songs
