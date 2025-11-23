@@ -62,7 +62,7 @@ def create_playlist_by_genre(genre_name:str) -> str:
 
         for song in liked_songs:
             # Use Spotify track endpoint to get genre (requires artist info)
-            song_genre = fetch_artist_genre(sp,song["artists"][0])
+            song_genre = fetch_artist_genre(sp,song["primary_artist"])
             if genre_name.lower() in song_genre.lower():
                 filtered.append(song)
         
@@ -112,7 +112,7 @@ def create_playlist_by_mood(user_query:str):
         ]
 
 
-        # Fetch audio id's of the songs which match the user mood
+        # Fetching audio id's of the songs which match the user mood
         track_URIs , user_mood = get_audio_moods(user_query, tracks_info)    
         
         if not  track_URIs:
@@ -128,6 +128,7 @@ def create_playlist_by_mood(user_query:str):
         return f"Playlist '{playlist_name}' created with {len( track_URIs)} songs."
     except Exception as e:
         return f"Error creating playlist by mood {user_mood}: {str(e)}"
+    
 
 
 
@@ -154,4 +155,72 @@ def delete_playlist(playlist_name:str)->str:
     return f"No playlist found with name: {playlist_name}"
 
 
+@tool("smart_create_playlist")
+def smart_create_playlist( artist: str = None, genre: str = None, mood: str = None, count: int = None):
+    """
+    Create a playlist intelligently based on user intent.
+    
+    Args:
+        artist: Filter by artist name (optional)
+        genre: Filter by genre (optional)
+        mood: Filter by mood detected from audio (optional)
+        count: Max number of tracks in the playlist (optional)
+    """
 
+    try:
+        liked_songs = sp.get_liked_songs()
+        if not liked_songs:
+            return "No liked songs found."
+        
+        if not artist and not genre and not mood:
+            return "Request atleast needs to have an artist name or genre or mood to create a playlist."
+
+        filtered = liked_songs
+
+        # Artist filter
+        if artist:
+            filtered = [
+                song for song in filtered 
+                if artist.lower() in song["primary_artist"].lower()
+            ]
+
+        # Genre filter
+        if genre:
+            temp = []
+            for song in filtered:
+                song_genre = fetch_artist_genre(sp, song["primary_artist"])
+                if genre.lower() in song_genre.lower():
+                    temp.append(song)
+            filtered = temp
+
+        # Mood filter
+        if mood:
+            track_uris, user_mood = get_audio_moods(mood, filtered)
+            if not track_uris:
+                return f"No tracks match mood: {mood}"
+            
+            filtered = [
+                {"uri": f"spotify:track:{tid}"} for tid in track_uris
+            ]
+
+    
+        if count:
+            filtered = filtered[:count]
+
+        if not filtered:
+            return "No tracks matched your request."
+
+        playlist_name = " My {artist} {genre} {mood} Playlist"
+        playlist_id = create_playlist(sp, playlist_name)
+
+        uris = [
+            song["uri"] if isinstance(song, dict) else song
+            for song in filtered
+        ]
+        add_tracks_to_playlist(sp, playlist_id, uris)
+
+        return f"Playlist '{playlist_name}' created with {len(uris)} songs."
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+    
