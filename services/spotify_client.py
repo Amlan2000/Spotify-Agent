@@ -40,4 +40,60 @@ class SpotifyClient:
                 break
         
         return songs
+    
 
+
+    def get_devices(self):
+        url = f"{self.base}/me/player/devices"
+        r = requests.get(url, headers=self.headers())
+        r.raise_for_status()
+        return r.json().get("devices", [])
+
+    def get_preferred_device_id(self):
+        devices = self.get_devices()
+        if not devices:
+            return None
+        # prefer active
+        for d in devices:
+            if d.get("is_active"):
+                return d.get("id")
+        # fallback default
+        return devices[0].get("id")
+
+    def start_playback(self, playlist_uri=None, uris=None, device_id=None, position_ms=None):
+        """
+        Start or resume playback on a device.
+        Args:
+          playlist_uri: e.g. "spotify:playlist:{playlist_id}"
+          uris: list of track URIs
+          device_id: optional
+          position_ms: optional
+        """
+        url = f"{self.base}/me/player/play"
+        if device_id:
+            url += f"?device_id={device_id}"
+        payload = {}
+        if playlist_uri:
+            payload["context_uri"] = playlist_uri
+        elif uris:
+            payload["uris"] = uris
+        if position_ms is not None:
+            payload["position_ms"] = position_ms
+
+        r = requests.put(url, headers=self.headers(), json=payload)
+        r.raise_for_status()
+        return r.status_code
+
+    def transfer_playback(self, device_id: str, play: bool = True):
+        url = f"{self.base}/me/player"
+        payload = {
+            "device_ids": [device_id],
+            "play": play
+        }
+
+        r = requests.put(url, headers=self.headers(), json=payload)
+
+        if r.status_code not in [200, 202, 204]:
+            raise Exception(f"Error transferring playback: {r.status_code}, {r.text}")
+
+        return "Playback transferred successfully"

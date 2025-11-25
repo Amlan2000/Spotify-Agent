@@ -1,21 +1,21 @@
 from langchain_ollama import ChatOllama
 from langchain.agents import initialize_agent, AgentType
-from tools.playlist_tools import  delete_playlist, smart_create_playlist
+from tools.playlist_tools import  delete_playlist, play_playlist, smart_create_playlist
 from prompts.prompts import get_spotify_system_prompt
 from langchain.memory import ConversationBufferMemory
 
 def get_agent():
     llm = ChatOllama(
         model="llama3",
-        temperature=0.5
+        temperature=0
     )
 
-    tools = [smart_create_playlist,delete_playlist]
+    tools = [smart_create_playlist,delete_playlist,play_playlist]
 
-    memory = ConversationBufferMemory(
-        memory_key="chat_history",
-        return_messages=True
-    )
+    # memory = ConversationBufferMemory(
+    #     memory_key="chat_history",
+    #     return_messages=True
+    # )
 
     system_prompt = get_spotify_system_prompt()
 
@@ -24,9 +24,11 @@ def get_agent():
         llm,
         agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
         verbose=True,
-        memory=memory,
+        # memory=memory,
         handle_parsing_errors=True,
-        system_message=system_prompt
+        system_message=system_prompt,
+        max_iterations=3,  # Add iteration limit
+
     )
 
     return agent

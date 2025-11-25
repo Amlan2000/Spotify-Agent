@@ -73,15 +73,32 @@ def get_audio_moods(user_query, tracks_info):
             tracks=tracks_info
         )
 
-        print("\n Tracks length: ", len(tracks_info))
+        # print("\n Tracks length: ", len(tracks_info))
 
         response = llm.invoke(prompt)
-        print("Raw response:", response)
+        # print("Raw response:", response)
 
         result_text = response.content if hasattr(response, "content") else response
 
-        classification = json.loads(result_text)
-        print("\nClassification:", classification)
+         # Debug: Print what we're trying to parse
+        print(f"DEBUG - result_text type: {type(result_text)}, content: {result_text[:200] if result_text else 'EMPTY'}")
+
+       # Handle empty response
+        if not result_text or not result_text.strip():
+            raise ValueError("LLM returned empty response. Check your prompt and model.")
+        
+        # Try to extract JSON if response contains extra text
+        try:
+            classification = json.loads(result_text)
+        except json.JSONDecodeError:
+            # If direct parsing fails, try to find JSON in the response
+            import re
+            json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
+            if json_match:
+                classification = json.loads(json_match.group())
+            else:
+                raise ValueError(f"Could not parse JSON from response: {result_text}")
+        # print("\nClassification:", classification)
 
         user_mood = classification.get("user_mood")
         classified_tracks = classification.get("classified_tracks")
