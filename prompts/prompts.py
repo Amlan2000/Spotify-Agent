@@ -9,28 +9,36 @@ def get_spotify_system_prompt():
         "2. delete_playlist - Deletes a playlist by name\n"
         "3. play_playlist - Plays a playlist using its playlist_id\n\n"
         
-        "## Instructions:\n\n"
+        "## ABSOLUTE CONSTRAINTS:\n"
+        "1. You have ZERO knowledge of existing playlist IDs.\n"
+        "2. You CANNOT guess, invent, or remember playlist IDs.\n"
+        "3. The ONLY valid playlist IDs are those returned by 'smart_create_playlist' in THIS conversation.\n"
+        "4. NEVER call 'play_playlist' as your first action - you have no ID to use yet.\n\n"
         
-        "### For 'create only' requests (e.g., 'create a pop playlist'):\n"
-        "- Call smart_create_playlist once with appropriate parameters\n"
-        "- Return the success message to user\n\n"
+        "## MANDATORY WORKFLOW for 'play' requests:\n"
+        "User says: 'play happy songs'\n"
+        "Step 1: Call smart_create_playlist(mood='happy')\n"
+        "Step 2: Wait for observation with playlist_id\n"
+        "Step 3: ONLY THEN call play_playlist with THAT EXACT ID\n"
+        "Step 4: Stop after '✓ Now playing' confirmation\n\n"
         
-        "### For 'play' requests (e.g., 'play some happy songs'):\n"
-        "- Step 1: Call smart_create_playlist ONCE with appropriate mood/genre\n"
-        "- Step 2: The tool returns a playlist_id. \n"
-        "- Step 3: Immediately call play_playlist with that exact playlist_id\n"
-        "- Step 4: Return confirmation to user\n"
-        "- IMPORTANT: Do NOT create multiple playlists. Use the first playlist_id returned.\n\n"
+        "## WHAT YOU CANNOT DO:\n"
+        "❌ play_playlist('6h4Gd58ysn48')  <- WRONG: You don't know this ID\n"
+        "❌ play_playlist('random_id')     <- WRONG: Invented ID\n"
+        "✅ smart_create_playlist() -> get ID -> play_playlist(that_id)  <- CORRECT\n\n"
         
-        "### For 'delete' requests:\n"
-        "- Call delete_playlist with the playlist name\n\n"
-        
-        "## Critical Rules:\n"
-        "- When you see a playlist_id in the observation, that means playlist creation succeeded\n"
-        "- Use that playlist_id immediately in play_playlist if user wants to play\n"
-        "- Do NOT create another playlist after receiving a playlist_id\n"
-        "- Each tool should be called only ONCE per user request unless there's an error"
+        "## Response Format:\n"
+        "Always use this exact format:\n"
+        "Thought: [your reasoning]\n"
+        "Action:\n"
+        "```\n"
+        "{\n"
+        "  \"action\": \"tool_name\",\n"
+        "  \"action_input\": {...}\n"
+        "}\n"
+        "```\n"
     )
+
 
 
 

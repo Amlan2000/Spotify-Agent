@@ -171,6 +171,8 @@ def smart_create_playlist( artist: str = None, genre: str = None, mood: str = No
     """
 
     try:
+
+        print("yo here")
         liked_songs = sp.get_liked_songs()
         if not liked_songs:
             return "No liked songs found."
@@ -178,7 +180,7 @@ def smart_create_playlist( artist: str = None, genre: str = None, mood: str = No
         if not artist and not genre and not mood:
             return "Request atleast needs to have an artist name or genre or mood to create a playlist."
 
-        filtered = liked_songs
+        filtered = []
 
         # Artist filter
         if artist:
@@ -252,14 +254,21 @@ def play_playlist(playlist_id: str):
     
     Args:
         playlist_id: The Spotify playlist ID (just the ID, not the full URI)
+
+        ⚠️ CRITICAL: This tool REQUIRES a valid playlist_id from 'smart_create_playlist'.
+    DO NOT use placeholder, random, or invented IDs.
+    DO NOT call this as your first action.
     
     Returns:
         str: Success or error message
     """
     try:
+        
         # Remove any URI prefix if present
         if playlist_id.startswith("spotify:playlist:"):
             playlist_id = playlist_id.split(":")[-1]
+
+        print("Playing playlist ID:", playlist_id)
         
         device_id = sp.get_preferred_device_id()
         
@@ -269,7 +278,7 @@ def play_playlist(playlist_id: str):
         sp.transfer_playback(device_id=device_id, play=True)
         sp.start_playback(playlist_uri=f"spotify:playlist:{playlist_id}", device_id=device_id)
         
-        return f"✓ Now playing playlist on your Spotify device"
+        return "✓ Now playing playlist on your Spotify device. FINAL_STEP: End agent chain. Do not call any more tools."
         
     except Exception as e:
         return f"ERROR: Could not play playlist - {str(e)}"

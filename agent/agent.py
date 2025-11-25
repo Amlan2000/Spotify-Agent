@@ -28,7 +28,6 @@ def get_agent():
         handle_parsing_errors=True,
         system_message=system_prompt,
         max_iterations=3,  # Add iteration limit
-
     )
 
     return agent
